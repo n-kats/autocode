@@ -1,0 +1,70 @@
+# 使い方
+```
+from autocode import autocode, setup_autocode
+
+setup_autocode(dotenv_path=".env")  # .envファイルのパスを指定
+
+# 最も簡単な例
+fn = autocode("引数を足す", args=["a", "b"])
+print(fn(1, 2))  # 3
+
+# デバッグ用に関数を表示
+## 全体的に表示する
+setup_autocode(dotenv_path=".env", verbose=True)
+
+## 関数毎に表示する
+autocode("関数の説明", args=["a", "b"], verbose=True)
+
+# 対話的に関数を生成する
+## 全体的に対話的に生成する
+setup_autocode(dotenv_path=".env", interactive=True)
+
+## 関数毎に対話的に生成する
+autocode("関数の説明", args=["a", "b"], interactive=True)
+
+# エラー時に関数を再生成する
+## 全体的に再生成する
+setup_autocode(dotenv_path=".env", retry=True)
+
+## 関数毎に再生成する
+autocode("関数の説明", args=["a", "b"], retry=True)
+
+# 関数名を指定する
+autocode("関数の説明", args=["a", "b"], name="my_function")
+
+# IDをつける（ワークスペースでユニークなものを指定（uuidgenコマンドで生成するとよい）
+# 関数と生成コードの対応優先度:
+# 1. IDが指定されている場合
+# 2. ファイルパスと関数名が一致する場合
+# 3. ファイルパスと説明が一致する場合
+autocode("関数の説明", args=["a", "b"], id="3aaf5a78-0efe-4928-852f-ecec20db1e5a")
+
+# 他の引数を使う場合
+autocode("関数の説明", args=["a", "b"], use_extra_args=True, kwargs=["c", "d"], use_extra_kwargs=True)
+# fn(a, b, *args, c, d, **kwargs) のような関数が生成される
+
+# 型を宣言する場合（プロンプトに反映される）
+# typeはpydanticの型の場合、jsonschemaでの説明がプロンプトに反映される
+autocode(
+  "関数の説明", 
+  args=[{"var": "a", "type": int}, {"var": "b", "type": int, "default": 0}],
+  use_extra_args=True, extra_args_type=int,
+  kwargs=[{"var": "c", "type": int, "default": 0}],
+  use_extra_kwargs=True, extra_extra_kwargs_type=int,
+  return_type=int,
+)
+
+# デコレータとして使う（autocodeの引数は関数から補完される）
+@autocode(decorator=True)
+def add(a: int, b: int) -> int:
+    """
+    引数を足す関数
+    """
+
+# 既存コード関数利用・参照
+autocode("関数の説明", args=["a", "b"], tools=[calculation_wrapper], refs=["package.module:ref_function", my_ref_function, my_ref_module])])
+
+# 手動関数で上書き（生成したコードを本採用して、特定の場所に本実装を書いた場合）（無ければ生成コードを使う）
+autocode("関数の説明", args=["a", "b"], override="package.module:function")
+
+```
