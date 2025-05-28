@@ -1,4 +1,7 @@
-# 使い方
+# autocode
+**アイデア出し中**
+
+## 使い方（構想）
 ```
 from autocode import autocode, setup_autocode
 
