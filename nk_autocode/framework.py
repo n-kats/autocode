@@ -1,6 +1,6 @@
+import inspect
 from abc import ABC, abstractmethod
 from typing import Any
-import inspect
 
 from pydantic import BaseModel, Field
 
@@ -22,6 +22,7 @@ class HumanFeedback(BaseModel):
 
 class ErrorFeedback(BaseModel):
     """コード実行時のエラー情報フィードバック"""
+
     previous_code: str
     error_message: str
 
@@ -32,9 +33,7 @@ Feedback = HumanFeedback | ErrorFeedback
 class Context(BaseModel):
     """コード生成 に渡すコンテキスト情報"""
 
-    description: str | None = Field(
-        default=None,
-        description="Function description for code generation")
+    description: str | None = Field(default=None, description="Function description for code generation")
     docstring: str | None = None
     args: list[Variable]
     kwargs: list[Variable]
@@ -80,6 +79,7 @@ class Context(BaseModel):
                     case _:
                         raise TypeError(f"Invalid arg type: {type(item)}")
             return items
+
         return cls(
             description=description,
             args=to_vars(args),

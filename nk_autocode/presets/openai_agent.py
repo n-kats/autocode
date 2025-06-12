@@ -1,7 +1,8 @@
 import re
 
 import openai
-from nk_autocode.framework import BaseAgent, Context, Variable, HumanFeedback, ErrorFeedback, Variable
+
+from nk_autocode.framework import BaseAgent, Context, ErrorFeedback, HumanFeedback, Variable
 
 
 def type_str_from_variable(var: Variable) -> str:
@@ -61,7 +62,7 @@ class OpenAIAgent(BaseAgent):
                         prompt += f"- Error: {err}\n"
         return prompt.strip()
 
-    def generate_code(self, context: Context, verbose: bool=False) -> str:
+    def generate_code(self, context: Context, verbose: bool = False) -> str:
         prompt = self.generate_prompt(context)
         if verbose:
             print(f"Generated Prompt:\n{prompt}\n")

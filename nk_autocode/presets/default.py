@@ -1,9 +1,10 @@
-import os
 import inspect
-
+import os
 from typing import Any
+
 from dotenv import load_dotenv
-from nk_autocode.framework import Context, Variable, BaseAgent
+
+from nk_autocode.framework import BaseAgent, Variable
 from nk_autocode.presets.assistant import Assistant
 from nk_autocode.presets.openai_agent import OpenAIAgent
 

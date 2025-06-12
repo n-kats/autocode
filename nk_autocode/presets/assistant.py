@@ -1,16 +1,24 @@
-import sys
-from functools import wraps
-from nk_autocode.framework import Context, Variable, HumanFeedback, ErrorFeedback, BaseAgent, BaseAssistant,  GiveUpGenerationError, Feedback
-from typing import Any
-from pathlib import Path
 import inspect
-
+import sys
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from nk_autocode.framework import (
+    BaseAgent,
+    BaseAssistant,
+    Context,
+    ErrorFeedback,
+    Feedback,
+    GiveUpGenerationError,
+    HumanFeedback,
+    Variable,
+)
+
 
 @dataclass
 class Workspace:
     cache_root: Path
-
 
     def get_code_path_by_path(self, path: Path, name: str) -> Path:
         struct_dir = self.cache_root / "structure"
@@ -42,7 +50,14 @@ class Workspace:
             print(f"Code saved to {struct_file}")
         return struct_file
 
-    def save_code(self, code: str, id_: str | None = None, name: str | None = None, caller_path: Path | None = None, verbose: bool = False):
+    def save_code(
+        self,
+        code: str,
+        id_: str | None = None,
+        name: str | None = None,
+        caller_path: Path | None = None,
+        verbose: bool = False,
+    ):
         if id_:
             self.save_code_by_id(id_, code, verbose=verbose)
         elif name:
@@ -51,7 +66,13 @@ class Workspace:
             raise ValueError("Either 'id' or 'name' must be provided for saving code.")
 
 
-def load_cached_code(workspace: Workspace, caller_path: Path | None,name: str | None = None, id_: str | None = None, verbose:bool=False) -> tuple[bool, Any]:
+def load_cached_code(
+    workspace: Workspace,
+    caller_path: Path | None,
+    name: str | None = None,
+    id_: str | None = None,
+    verbose: bool = False,
+) -> tuple[bool, Any]:
     cache_path: Path | None = None
     if id_:
         id_file = workspace.get_code_path_by_id(id_)
@@ -69,11 +90,13 @@ def load_cached_code(workspace: Workspace, caller_path: Path | None,name: str | 
         return True, ns.get(name) or next(v for v in ns.values() if callable(v))
     return False, None
 
+
 def save_code(workspace: Workspace, name: str, code: str, id: str | None = None) -> Path:
     if id:
         return workspace.save_code_by_id(id, code)
     else:
         return workspace.save_code_by_name(name, code)
+
 
 class Assistant(BaseAssistant):
     def __init__(self, verbose: bool, interactive: bool, regenerate: bool, agent: BaseAgent):
@@ -146,21 +169,37 @@ class Assistant(BaseAssistant):
             stack=stack,
         )
         _agent = agent or self.agent
-        caller_path = Path(stack[0].filename).relative_to(Path.cwd()) if stack else None  # TODO: 本当はcwdではなく、プロジェクトのルートディレクトリを使うべき
+        caller_path = (
+            Path(stack[0].filename).relative_to(Path.cwd()) if stack else None
+        )  # TODO: 本当はcwdではなく、プロジェクトのルートディレクトリを使うべき
         if decorator:
             return self._autocode_decorator(
                 ctx, _agent, verbose=verbose, interactive=interactive, regenerate=regenerate, caller_path=caller_path
             )
         return self._generate_from_context(
-            ctx, _agent, verbose=verbose, interactive=interactive, regenerate=regenerate, caller_path=caller_path, id_=id
+            ctx,
+            _agent,
+            verbose=verbose,
+            interactive=interactive,
+            regenerate=regenerate,
+            caller_path=caller_path,
+            id_=id,
         )
 
-
     def _generate_from_context(
-        self, ctx: Context, agent: BaseAgent, verbose: bool, interactive: bool, regenerate: bool, caller_path: Path | None, id_: str | None = None
+        self,
+        ctx: Context,
+        agent: BaseAgent,
+        verbose: bool,
+        interactive: bool,
+        regenerate: bool,
+        caller_path: Path | None,
+        id_: str | None = None,
     ):
         if not regenerate:
-            success, loaded_code = load_cached_code(self.__workspace, name=ctx.name, id_=ctx.id, caller_path=caller_path, verbose=verbose)
+            success, loaded_code = load_cached_code(
+                self.__workspace, name=ctx.name, id_=ctx.id, caller_path=caller_path, verbose=verbose
+            )
             if success:
                 return loaded_code
 
@@ -188,10 +227,15 @@ class Assistant(BaseAssistant):
         self.__workspace.save_code(code=code, id_=id_, name=ctx.name, caller_path=caller_path, verbose=verbose)
         return compile_code(code, ctx.name)
 
-
     def _autocode_decorator(
-            self, ctx: Context, _agent: BaseAgent, verbose: bool, interactive: bool, regenerate: bool, caller_path: Path | None):
-
+        self,
+        ctx: Context,
+        _agent: BaseAgent,
+        verbose: bool,
+        interactive: bool,
+        regenerate: bool,
+        caller_path: Path | None,
+    ):
         def decorator(func):
             ctx_copy = ctx.copy()
             ctx_copy.name = func.__name__
@@ -199,13 +243,17 @@ class Assistant(BaseAssistant):
             ctx_copy.args = [Variable(name=arg) for arg in ctx_copy.args] if ctx_copy.args else []
             ctx_copy.kwargs = [Variable(name=kwarg) for kwarg in ctx_copy.kwargs] if ctx_copy.kwargs else []
 
-
             return self._generate_from_context(
-                ctx_copy, _agent, verbose=verbose, interactive=interactive, regenerate=regenerate, caller_path=caller_path, id_=ctx.id
+                ctx_copy,
+                _agent,
+                verbose=verbose,
+                interactive=interactive,
+                regenerate=regenerate,
+                caller_path=caller_path,
+                id_=ctx.id,
             )
 
         return decorator
-
 
     def _human_check(self, code: str) -> tuple[bool, HumanFeedback | None]:
         print("[autocode] Generated Code:")
@@ -217,7 +265,7 @@ class Assistant(BaseAssistant):
             feedback_text = input("Enter feedback on the code issues: ")
             return False, HumanFeedback(feedback=feedback_text, previous_code=code)
 
-    def _error_check(self, code: str, function_name: str | None, verbose:bool) -> tuple[bool, ErrorFeedback | None]:
+    def _error_check(self, code: str, function_name: str | None, verbose: bool) -> tuple[bool, ErrorFeedback | None]:
         try:
             created_function = compile_code(code, function_name)
             if created_function is None:
@@ -228,7 +276,9 @@ class Assistant(BaseAssistant):
                 else:
                     if verbose:
                         print(f"[autocode] Function '{function_name}' not found in the generated code.")
-                    return False, ErrorFeedback(error_message=f"Function '{function_name}' not found in the code.", previous_code=code)
+                    return False, ErrorFeedback(
+                        error_message=f"Function '{function_name}' not found in the code.", previous_code=code
+                    )
             elif not callable(created_function):
                 if verbose:
                     print(f"[autocode] '{function_name}' is not callable.")
@@ -240,6 +290,7 @@ class Assistant(BaseAssistant):
                 print(f"[autocode] Error executing generated code: {e}")
             return False, ErrorFeedback(error_message=str(e), previous_code=code)
 
+
 def compile_code(code: str, function_name: str | None) -> Any:
     ns: dict[str, Any] = {}
     exec(code, ns)
@@ -247,6 +298,7 @@ def compile_code(code: str, function_name: str | None) -> Any:
         return next((v for v in ns.values() if callable(v)), None)
     else:
         return ns.get(function_name)
+
 
 def yes_no_prompt(prompt: str) -> bool:
     while True:

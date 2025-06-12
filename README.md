@@ -1,9 +1,9 @@
 # autocode
-**アイデア出し中**
+実行時コード生成ライブラリ
 
 ## 使い方（構想）
 ```
-from autocode import autocode, setup_autocode
+from nk_autocode import autocode, setup_autocode
 
 setup_autocode(dotenv_path=".env")  # .envファイルのパスを指定
 
@@ -25,13 +25,6 @@ setup_autocode(dotenv_path=".env", interactive=True)
 ## 関数毎に対話的に生成する
 autocode("関数の説明", args=["a", "b"], interactive=True)
 
-# エラー時に関数を再生成する
-## 全体的に再生成する
-setup_autocode(dotenv_path=".env", retry=True)
-
-## 関数毎に再生成する
-autocode("関数の説明", args=["a", "b"], retry=True)
-
 # 関数名を指定する
 autocode("関数の説明", args=["a", "b"], name="my_function")
 
@@ -41,6 +34,13 @@ autocode("関数の説明", args=["a", "b"], name="my_function")
 # 2. ファイルパスと関数名が一致する場合
 # 3. ファイルパスと説明が一致する場合
 autocode("関数の説明", args=["a", "b"], id="3aaf5a78-0efe-4928-852f-ecec20db1e5a")
+
+# 再生成
+## 全体的に再生成する
+setup_autocode(dotenv_path=".env", regenerate=True, id="dummy_id")
+
+## 関数毎に再生成する
+autocode("関数の説明", args=["a", "b"], regenerate=True, id="dummy_id")
 
 # 他の引数を使う場合
 autocode("関数の説明", args=["a", "b"], use_extra_args=True, kwargs=["c", "d"], use_extra_kwargs=True)
@@ -64,10 +64,10 @@ def add(a: int, b: int) -> int:
     引数を足す関数
     """
 
-# 既存コード関数利用・参照
+# 既存コード関数利用・参照(未実装)
 autocode("関数の説明", args=["a", "b"], tools=[calculation_wrapper], refs=["package.module:ref_function", my_ref_function, my_ref_module])])
 
-# 手動関数で上書き（生成したコードを本採用して、特定の場所に本実装を書いた場合）（無ければ生成コードを使う）
+# 手動関数で上書き
 autocode("関数の説明", args=["a", "b"], override="package.module:function")
 
 ```
