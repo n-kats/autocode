@@ -112,6 +112,7 @@ def get_prompt() -> str:
 - Use long strings (\"\"\"...\"\"\") for multi-line string. but not for multi-line comments.
 - This rule should be followed strictly. However, provided descriptions are more important than the rules.a
 - Docstring should be detailed based on the provided description.
+  - docstring should include only information that is for the user of the function. Do not include information that is for the implementer of the function.
 - Comments should mean why the code is not other way, not what the code does.
-"""
+"""  # noqa: E501
     return prompt
