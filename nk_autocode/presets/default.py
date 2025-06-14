@@ -14,8 +14,8 @@ _default_assistant: Assistant
 
 def autocode(
     description: str | None = None,
-    args: list[str | Variable | dict] = None,
-    kwargs: list[str | Variable | dict] = None,
+    args: list[str | Variable | dict] | None = None,
+    kwargs: list[str | Variable | dict] | None = None,
     use_extra_args: bool = False,
     extra_args_type: type | None = None,
     use_extra_kwargs: bool = False,

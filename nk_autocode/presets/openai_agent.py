@@ -15,7 +15,7 @@ def type_str_from_variable(var: Variable) -> str:
 class OpenAIAgent(BaseAgent):
     """OpenAI API を利用するエージェント実装"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4", temperature: float = 0):
+    def __init__(self, api_key: str, model: str = "gpt-4.1", temperature: float = 0):
         openai.api_key = api_key
         self.model = model
         self.temperature = temperature
@@ -32,20 +32,29 @@ class OpenAIAgent(BaseAgent):
             prompt += f"### Docstring\n{context.docstring}\n\n"
 
         prompt += "### Parameters\n"
-        for var in context.args:
-            type_str = var.type if isinstance(var.type, str) else var.type.__name__ if var.type else "Any"
-            prompt += f"- {var.var}: {type_str}"
-            if var.default is not None:
-                prompt += f" = {var.default}"
-            prompt += "\n"
+        if context.args is not None:
+            if context.args:
+                for var in context.args:
+                    type_str = var.type if isinstance(var.type, str) else var.type.__name__ if var.type else "Any"
+                    prompt += f"- {var.var}: {type_str}"
+                    if var.default is not None:
+                        prompt += f" = {var.default}"
+                    prompt += "\n"
+            else:
+                prompt += "- No positional arguments\n"
         if context.use_extra_args:
             et = context.extra_args_type.__name__ if context.extra_args_type else "Any"
             prompt += f"- *args: {et}\n"
-        for var in context.kwargs:
-            prompt += f"- {var.var}: {type_str_from_variable(var)}"
-            if var.default is not None:
-                prompt += f" = {var.default}"
-            prompt += "\n"
+
+        if context.kwargs is not None:
+            if context.kwargs:
+                for var in context.kwargs:
+                    prompt += f"- {var.var}: {type_str_from_variable(var)}"
+                    if var.default is not None:
+                        prompt += f" = {var.default}"
+                    prompt += "\n"
+            else:
+                prompt += "- No keyword arguments\n"
         if context.use_extra_kwargs:
             kt = context.extra_kwargs_type.__name__ if context.extra_kwargs_type else "Any"
             prompt += f"- **kwargs: {kt}\n"
@@ -72,7 +81,7 @@ class OpenAIAgent(BaseAgent):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful coding assistant that can reason in multiple steps. You generate Python code based on the provided context. only return the code in a code block.",  # noqa: E501
+                    "content": get_prompt(),
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -81,3 +90,28 @@ class OpenAIAgent(BaseAgent):
         content = resp.choices[0].message.content
         m = re.search(r"```(?:python)?\n(.*?)(?:```|$)", content, re.S)
         return m.group(1).strip() if m else content.strip()
+
+
+def get_prompt() -> str:
+    """
+    Returns:
+        str: The instruction part of the prompt.
+    """
+    prompt = """Generate Python code that meets the following conditions:
+- It should be written in Python.
+- It should be executable.
+- It should comply with PEP 8 standards.
+- It should be compatible with Python 3.12.
+- It should use new-style type hints as much as possible.
+  - `list[str]` instead of `List[str]`. (also for dict, set, tuple, etc.)
+  - `str | None` instead of `Optional[str]`.
+- It should use type hints as much as possible.
+- It should include a Google style docstring.
+- It should be efficient and optimized.
+- Comments in the code should be based on the provided description.
+- Use long strings (\"\"\"...\"\"\") for multi-line string. but not for multi-line comments.
+- This rule should be followed strictly. However, provided descriptions are more important than the rules.a
+- Docstring should be detailed based on the provided description.
+- Comments should mean why the code is not other way, not what the code does.
+"""
+    return prompt

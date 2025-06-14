@@ -153,7 +153,7 @@ class Assistant(BaseAssistant):
                 def decorator_func(func):
                     @functools.wraps(func)
                     def wrapper(*args, **kwargs):
-                        return dry_run_fn(func, *args, **kwargs)
+                        return dry_run_fn(*args, **kwargs)
 
                     return wrapper
 
@@ -268,8 +268,6 @@ class Assistant(BaseAssistant):
             ctx_copy = ctx.copy()
             ctx_copy.name = func.__name__
             ctx_copy.docstring = func.__doc__
-            ctx_copy.args = [Variable(name=arg) for arg in ctx_copy.args] if ctx_copy.args else []
-            ctx_copy.kwargs = [Variable(name=kwarg) for kwarg in ctx_copy.kwargs] if ctx_copy.kwargs else []
 
             return self._generate_from_context(
                 ctx_copy,

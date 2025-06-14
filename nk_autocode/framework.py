@@ -35,8 +35,8 @@ class Context(BaseModel):
 
     description: str | None = Field(default=None, description="Function description for code generation")
     docstring: str | None = None
-    args: list[Variable]
-    kwargs: list[Variable]
+    args: list[Variable] | None
+    kwargs: list[Variable] | None
     use_extra_args: bool
     extra_args_type: type | None
     use_extra_kwargs: bool
