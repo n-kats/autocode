@@ -15,7 +15,7 @@ def type_str_from_variable(var: Variable) -> str:
 class OpenAIAgent(BaseAgent):
     """OpenAI API を利用するエージェント実装"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4.1", temperature: float = 0):
+    def __init__(self, api_key: str | None, model: str = "gpt-4.1", temperature: float = 0):
         openai.api_key = api_key
         self.model = model
         self.temperature = temperature
@@ -87,7 +87,7 @@ class OpenAIAgent(BaseAgent):
             ],
             temperature=self.temperature,
         )
-        content = resp.choices[0].message.content
+        content = resp.choices[0].message.content or ""
         m = re.search(r"```(?:python)?\n(.*?)(?:```|$)", content, re.S)
         return m.group(1).strip() if m else content.strip()
 

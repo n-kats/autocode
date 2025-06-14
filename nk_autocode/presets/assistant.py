@@ -9,11 +9,17 @@ from nk_autocode.editor import Editor
 from nk_autocode.framework import (
     BaseAgent,
     BaseAssistant,
+    BaseGeneratedCode,
+    CachedCode,
+    CompiledCode,
     Context,
+    DecoratorCode,
+    DryRunCode,
     ErrorFeedback,
     Feedback,
     GiveUpGenerationError,
     HumanFeedback,
+    ImportedCode,
     Variable,
 )
 
@@ -27,14 +33,14 @@ class Workspace:
         struct_file = struct_dir / f"{path}/{name}.py"
         return struct_file
 
-    def get_code_path_by_id(self, id: str) -> str | None:
+    def get_code_path_by_id(self, id: str) -> Path | None:
         ids_dir = self.cache_root / "ids"
         id_file = ids_dir / f"{id}.py"
         if id_file.is_file():
             return id_file
         return None
 
-    def save_code_by_id(self, id: str, code: str, verbose: bool = False) -> str:
+    def save_code_by_id(self, id: str, code: str, verbose: bool = False) -> Path:
         ids_dir = self.cache_root / "ids"
         ids_dir.mkdir(parents=True, exist_ok=True)
         id_file = ids_dir / f"{id}.py"
@@ -59,7 +65,7 @@ class Workspace:
         name: str | None = None,
         caller_path: Path | None = None,
         verbose: bool = False,
-    ):
+    ) -> None:
         if id_:
             self.save_code_by_id(id_, code, verbose=verbose)
         elif name:
@@ -74,13 +80,13 @@ def load_cached_code(
     name: str | None = None,
     id_: str | None = None,
     verbose: bool = False,
-) -> tuple[bool, Any]:
+) -> tuple[bool, BaseGeneratedCode | None]:
     cache_path: Path | None = None
     if id_:
         id_file = workspace.get_code_path_by_id(id_)
-        if id_file.is_file():
+        if id_file and id_file.is_file():
             cache_path = id_file
-    if not cache_path:
+    if not cache_path and caller_path and name:
         struct_file = workspace.get_code_path_by_path(caller_path, name)
         if struct_file.is_file():
             cache_path = struct_file
@@ -89,7 +95,11 @@ def load_cached_code(
             print(f"[autocode] Loaded code from cache: {cache_path}")
         ns: dict[str, Any] = {}
         exec(cache_path.read_text(encoding="utf-8"), ns)
-        return True, ns.get(name) or next(v for v in ns.values() if callable(v))
+        func = ns.get(name) if name else None
+        if not func:
+            func = next((v for v in ns.values() if callable(v)), None)
+        if func:
+            return True, CachedCode(func, str(cache_path))
     return False, None
 
 
@@ -108,14 +118,14 @@ class Assistant(BaseAssistant):
         regenerate: bool,
         agent: BaseAgent,
         editor: Editor | None,
-        dry_run: bool = False,
+        dry_run: bool | None = None,
         dry_run_fn: Callable | None = None,
     ):
         self.__verbose = verbose
         self.__interactive = interactive
         self.__regenerate = regenerate
         self.__agent = agent
-        self.__dry_run = dry_run
+        self.__dry_run = dry_run if dry_run is not None else False
         self.__workspace = Workspace(Path("_cache/autocode"))
         self.__editor = editor
 
@@ -142,7 +152,7 @@ class Assistant(BaseAssistant):
         decorator: bool = False,
         dry_run: bool | None = None,
         dry_run_fn: Callable | None = None,
-    ) -> Any:
+    ) -> BaseGeneratedCode:
         if dry_run is None:
             dry_run = self.__dry_run
         if dry_run:
@@ -150,16 +160,16 @@ class Assistant(BaseAssistant):
                 raise ValueError("dry_run_fn must be provided for dry run.")
             if decorator:
 
-                def decorator_func(func):
+                def decorator_func(func: Callable) -> DecoratorCode:
                     @functools.wraps(func)
-                    def wrapper(*args, **kwargs):
+                    def wrapper(*args: Any, **kwargs: Any) -> Any:
                         return dry_run_fn(*args, **kwargs)
 
-                    return wrapper
+                    return DecoratorCode(wrapper, func.__name__)
 
-                return decorator_func
+                return decorator_func  # type: ignore
             else:
-                return dry_run_fn
+                return DryRunCode(dry_run_fn, description)
 
         if stack is None:
             stack = inspect.stack()[1:]
@@ -167,7 +177,8 @@ class Assistant(BaseAssistant):
             try:
                 mod, fn = override.rsplit(":", 1)
                 module = __import__(mod, fromlist=[fn])
-                return getattr(module, fn)
+                func = getattr(module, fn)
+                return ImportedCode(func, mod, module.__file__ or "")
             except (ImportError, AttributeError):
                 pass
 
@@ -203,7 +214,7 @@ class Assistant(BaseAssistant):
         if decorator:
             return self._autocode_decorator(
                 ctx, _agent, verbose=verbose, interactive=interactive, regenerate=regenerate, caller_path=caller_path
-            )
+            )  # type: ignore
         return self._generate_from_context(
             ctx,
             _agent,
@@ -223,12 +234,12 @@ class Assistant(BaseAssistant):
         regenerate: bool,
         caller_path: Path | None,
         id_: str | None = None,
-    ):
+    ) -> BaseGeneratedCode:
         if not regenerate:
             success, loaded_code = load_cached_code(
                 self.__workspace, name=ctx.name, id_=ctx.id, caller_path=caller_path, verbose=verbose
             )
-            if success:
+            if success and loaded_code:
                 return loaded_code
 
         while True:
@@ -250,10 +261,12 @@ class Assistant(BaseAssistant):
 
             if not yes_no_prompt("Regenerate code?"):
                 raise GiveUpGenerationError("User chose to give up code generation.")
-            ctx.feedbacks.append(feedback)
+            if feedback:
+                ctx.feedbacks.append(feedback)
 
         self.__workspace.save_code(code=code, id_=id_, name=ctx.name, caller_path=caller_path, verbose=verbose)
-        return compile_code(code, ctx.name)
+        func = compile_code(code, ctx.name)
+        return CompiledCode(func, code, ctx)
 
     def _autocode_decorator(
         self,
@@ -263,8 +276,8 @@ class Assistant(BaseAssistant):
         interactive: bool,
         regenerate: bool,
         caller_path: Path | None,
-    ):
-        def decorator(func):
+    ) -> Callable:
+        def decorator(func: Callable) -> BaseGeneratedCode:
             ctx_copy = ctx.copy()
             ctx_copy.name = func.__name__
             ctx_copy.docstring = func.__doc__

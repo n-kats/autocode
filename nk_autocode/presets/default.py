@@ -5,7 +5,7 @@ from typing import Any, Callable
 from dotenv import load_dotenv
 
 from nk_autocode.editor import Editor
-from nk_autocode.framework import BaseAgent, Variable
+from nk_autocode.framework import BaseAgent, BaseGeneratedCode, Variable
 from nk_autocode.presets.assistant import Assistant
 from nk_autocode.presets.openai_agent import OpenAIAgent
 
@@ -21,19 +21,19 @@ def autocode(
     use_extra_kwargs: bool = False,
     extra_kwargs_type: type | None = None,
     return_type: type | None = None,
-    name: str = None,
+    name: str | None = None,
     id: str | None = None,
-    tools: list[Any] = None,
-    refs: list[Any] = None,
+    tools: list[Any] | None = None,
+    refs: list[Any] | None = None,
     override: str | None = None,
-    verbose: bool = None,
-    interactive: bool = None,
-    regenerate: bool = None,
+    verbose: bool | None = None,
+    interactive: bool | None = None,
+    regenerate: bool | None = None,
     decorator: bool = False,
     agent: BaseAgent | None = None,
     dry_run: bool | None = None,
     dry_run_fn: Callable | None = None,
-) -> Any:
+) -> BaseGeneratedCode:
     return _default_assistant.autocode(
         description=description,
         args=args,
@@ -68,7 +68,7 @@ def setup_autocode(
     editor: Editor | None = None,
     dry_run: bool | None = None,
     dry_run_fn: Callable | None = None,
-):
+) -> None:
     global _default_assistant
     if dotenv_path:
         load_dotenv(dotenv_path, override=True)
@@ -95,7 +95,7 @@ def setup_autocode(
 setup_autocode()
 
 
-def return_value(value: Any, verbose: bool = False) -> Any:
+def return_value(value: Any, verbose: bool = False) -> Callable[..., Any]:
     """
     Returns a function that prints the arguments and return value if verbose is True.
     This function is useful for dry_run_fn in autocode.
@@ -113,7 +113,7 @@ def return_value(value: Any, verbose: bool = False) -> Any:
         42
     """
 
-    def fn(*args, **kwargs):
+    def fn(*args: Any, **kwargs: Any) -> Any:
         if verbose:
             print(f"Arguments: {args}")
             print(f"Keyword Arguments: {kwargs}")
@@ -124,7 +124,7 @@ def return_value(value: Any, verbose: bool = False) -> Any:
     return fn
 
 
-def print_and_exception(*args, **kwargs) -> None:
+def print_and_exception(*args: Any, **kwargs: Any) -> None:
     """
     Prints the arguments and raises an exception.
     Args:

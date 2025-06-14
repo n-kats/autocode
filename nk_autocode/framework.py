@@ -47,6 +47,7 @@ class Context(BaseModel):
     tools: list[Any]
     refs: list[Any]
     feedbacks: list[Feedback] = Field(default_factory=list)
+    stack: list[inspect.FrameInfo] | None = None
 
     @classmethod
     def create(
@@ -113,29 +114,129 @@ class BaseAssistant(ABC):
     @abstractmethod
     def autocode(
         self,
-        description: str | None,
-        args: list[str | Variable | dict],
-        kwargs: list[str | Variable | dict],
-        use_extra_args: bool,
-        extra_args_type: type | None,
-        use_extra_kwargs: bool,
-        extra_kwargs_type: type | None,
-        return_type: type | None,
-        name: str | None,
-        id: str | None,
-        tools: list[Any],
-        refs: list[Any],
-        override: str | None,
-        verbose: bool,
-        interactive: bool,
-        regenerate: bool,
-        agent: BaseAgent | None,
+        name: str | None = None,
+        description: str | None = None,
+        id: str | None = None,
+        args: list[str | Variable | dict] | None = None,
+        kwargs: list[str | Variable | dict] | None = None,
+        use_extra_args: bool = False,
+        extra_args_type: type | None = None,
+        use_extra_kwargs: bool = False,
+        extra_kwargs_type: type | None = None,
+        return_type: type | None = None,
+        tools: list[Any] | None = None,
+        refs: list[Any] | None = None,
+        override: str | None = None,
+        agent: BaseAgent | None = None,
+        regenerate: bool | None = None,
         stack: list[inspect.FrameInfo] | None = None,
+        verbose: bool | None = None,
+        interactive: bool | None = None,
         decorator: bool = False,
         dry_run: bool | None = None,
-        dry_run_fn: Callable | None = None,
-    ) -> Any:
+        dry_run_fn: Callable[..., Any] | None = None,
+    ) -> "BaseGeneratedCode":
         """コンテキストをもとにコード生成を行う"""
+
+
+class BaseGeneratedCode(ABC):
+    """生成されたコードの抽象インターフェース"""
+
+    @abstractmethod
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        """対象の関数を呼び出す"""
+
+
+class CompiledCode(BaseGeneratedCode):
+    """AI生成・コンパイル済みのコード"""
+
+    def __init__(self, func: Callable[..., Any], source_code: str, context: Context) -> None:
+        self.__func = func
+        self.__source_code = source_code
+        self.__context = context
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.__func(*args, **kwargs)
+
+    @property
+    def source_code(self) -> str:
+        """生成されたソースコード"""
+        return self.__source_code
+
+    @property
+    def context(self) -> Context:
+        """生成時のコンテキスト"""
+        return self.__context
+
+
+class CachedCode(BaseGeneratedCode):
+    """キャッシュから読み込まれたコード"""
+
+    def __init__(self, func: Callable[..., Any], cache_path: str) -> None:
+        self.__func = func
+        self.__cache_path = cache_path
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.__func(*args, **kwargs)
+
+    @property
+    def cache_path(self) -> str:
+        """キャッシュファイルのパス"""
+        return self.__cache_path
+
+
+class ImportedCode(BaseGeneratedCode):
+    """外部ファイルからインポートされたコード"""
+
+    def __init__(self, func: Callable[..., Any], module_name: str, file_path: str) -> None:
+        self.__func = func
+        self.__module_name = module_name
+        self.__file_path = file_path
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.__func(*args, **kwargs)
+
+    @property
+    def module_name(self) -> str:
+        """モジュール名"""
+        return self.__module_name
+
+    @property
+    def file_path(self) -> str:
+        """ファイルパス"""
+        return self.__file_path
+
+
+class DryRunCode(BaseGeneratedCode):
+    """ドライラン用のコード"""
+
+    def __init__(self, dry_run_fn: Callable[..., Any], description: str | None = None) -> None:
+        self.__dry_run_fn = dry_run_fn
+        self.__description = description
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.__dry_run_fn(*args, **kwargs)
+
+    @property
+    def description(self) -> str | None:
+        """関数の説明"""
+        return self.__description
+
+
+class DecoratorCode(BaseGeneratedCode):
+    """デコレータで定義されたコード"""
+
+    def __init__(self, func: Callable[..., Any], function_name: str) -> None:
+        self.__func = func
+        self.__function_name = function_name
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.__func(*args, **kwargs)
+
+    @property
+    def function_name(self) -> str:
+        """デコレータで定義された関数名"""
+        return self.__function_name
 
 
 class GiveUpGenerationError(Exception):
