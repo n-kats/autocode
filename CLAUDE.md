@@ -5,11 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
-# Lint code
+# Lint code (mypy only checks nk_autocode, not samples)
 make lint
 # or
 ruff check nk_autocode samples
-mypy nk_autocode samples
+mypy nk_autocode
 
 # Format code  
 make format
@@ -32,7 +32,13 @@ This is **nk-autocode**, a runtime code generation library that generates Python
 **Core Framework (`nk_autocode/framework.py`)**
 - `BaseAgent`: Abstract base for AI code generation agents
 - `BaseAssistant`: Abstract base for assistant implementations  
-- `Context`: Contains all information needed for code generation (description, args, types, etc.)
+- `BaseGeneratedCode`: Abstract base class for all generated code representations with `__call__` method
+  - `CompiledCode`: AI-generated and compiled code with source and context
+  - `CachedCode`: Code loaded from cache with cache path information
+  - `ImportedCode`: Code imported from external files with module and file path
+  - `DryRunCode`: Code for dry run execution with optional description
+  - `DecoratorCode`: Code defined via decorators with function name
+- `Context`: Contains all information needed for code generation (description, args, types, stack, etc.)
 - `Variable`: Represents function parameters with type information
 - `Feedback`: Error and human feedback for iterative code improvement
 
@@ -63,7 +69,7 @@ This is **nk-autocode**, a runtime code generation library that generates Python
    - Compile and validate the generated code
    - Handle errors with feedback and regeneration
 4. **Caching**: Save successful code to workspace cache
-5. **Return**: Compiled function ready for execution
+5. **Return**: `BaseGeneratedCode` instance with callable interface
 
 ### Usage Patterns
 
@@ -82,3 +88,32 @@ This is **nk-autocode**, a runtime code generation library that generates Python
 Generated code is cached in `_cache/autocode/` to avoid regenerating identical functions:
 - Functions with explicit IDs: `ids/{uuid}.py`
 - Functions identified by location: `structure/{relative_path}/{function_name}.py`
+
+## Coding Rules
+
+### Type Safety
+- **Strict type annotations**: All functions must have complete type annotations
+- **Run `make lint` before commits**: Ensure mypy passes without errors
+- **Use union syntax**: `str | None` instead of `Optional[str]`
+- **Callable annotations**: Use `Callable[..., Any]` for generic callables
+
+### Class Design Patterns
+- **Abstract base classes**: Use ABC for interfaces, implement concrete classes
+- **Private attributes**: Use double underscore prefix (`self.__attr`) for internal state
+- **Unique class attributes**: Each concrete class should have distinct attributes reflecting its purpose
+- **Consistent naming**: Follow existing patterns (e.g., `BaseGeneratedCode`, `CompiledCode`)
+
+### Method Signatures
+- **Parameter consistency**: Abstract and concrete method signatures must match exactly
+- **Optional parameters**: Use `param | None = None` not `param = None` with non-optional type
+- **Default handling**: Preserve `None` as distinct from default values - don't convert `None` to `False`
+
+### Return Values
+- **Match declared types**: Actual return values must match declared return types
+- **Use type ignores sparingly**: Only when type system limitations require it
+- **Null safety**: Add proper null checks before accessing optional attributes
+
+### Error Handling
+- **Graceful null handling**: Check for `None` before method calls on optional objects
+- **Meaningful error messages**: Provide context in exception messages
+- **Type-safe operations**: Avoid operations that could fail due to `None` values
