@@ -70,4 +70,15 @@ autocode("関数の説明", args=["a", "b"], tools=[calculation_wrapper], refs=[
 # 手動関数で上書き
 autocode("関数の説明", args=["a", "b"], override="package.module:function")
 
+# dry-run（コードを生成せずに仮置きのコードを実行する）
+from nk_autocode import autocode, setup_autocode, return_value, print_and_exception
+setup_autocode(dry_run=True)  # autocodeの引数でもdry_run=Trueを指定可能
+fn = autocode("引数を足す", args=["a", "b"], dry_run_fn=return_value(3))
+print(fn(1, 2))  # 3
+fn = autocode("引数を足す", args=["a", "b"], dry_run_fn=print_and_exception)
+try:
+    fn(1, 2)  # 引数を表示して例外を発生させる
+except Exception as e:
+    print(e)
+fn = autocode("引数を足す", args=["a", "b"], dry_run=False)  # autocodeの引数でdry_run=Falseを指定するとsetup_autocodeより優先される
 ```

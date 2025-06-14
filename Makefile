@@ -1,5 +1,5 @@
 .PHONY: lint format test
-TARGET ?= nk_autocode
+TARGET ?= nk_autocode samples
 lint:
 	ruff check $(TARGET)
 	mypy $(TARGET)

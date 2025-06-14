@@ -1,6 +1,6 @@
 import inspect
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
@@ -132,6 +132,8 @@ class BaseAssistant(ABC):
         agent: BaseAgent | None,
         stack: list[inspect.FrameInfo] | None = None,
         decorator: bool = False,
+        dry_run: bool | None = None,
+        dry_run_fn: Callable | None = None,
     ) -> Any:
         """コンテキストをもとにコード生成を行う"""
 

@@ -72,7 +72,7 @@ class OpenAIAgent(BaseAgent):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful coding assistant that can reason in multiple steps. You generate Python code based on the provided context. only return the code in a code block.",
+                    "content": "You are a helpful coding assistant that can reason in multiple steps. You generate Python code based on the provided context. only return the code in a code block.",  # noqa: E501
                 },
                 {"role": "user", "content": prompt},
             ],

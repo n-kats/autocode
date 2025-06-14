@@ -1,8 +1,9 @@
+import functools
 import inspect
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from nk_autocode.framework import (
     BaseAgent,
@@ -99,17 +100,21 @@ def save_code(workspace: Workspace, name: str, code: str, id: str | None = None)
 
 
 class Assistant(BaseAssistant):
-    def __init__(self, verbose: bool, interactive: bool, regenerate: bool, agent: BaseAgent):
-        self.verbose = verbose
-        self.interactive = interactive
-        self.regenerate = regenerate
-        self.agent = agent
-        self._cache_root = Path("_cache/autocode")
-        self._ids_dir = self._cache_root / "ids"
-        self._structure_dir = self._cache_root / "structure"
-        self._ids_dir.mkdir(parents=True, exist_ok=True)
-        self._structure_dir.mkdir(parents=True, exist_ok=True)
-        self.__workspace = Workspace(self._cache_root)
+    def __init__(
+        self,
+        verbose: bool,
+        interactive: bool,
+        regenerate: bool,
+        agent: BaseAgent,
+        dry_run: bool = False,
+        dry_run_fn: Callable | None = None,
+    ):
+        self.__verbose = verbose
+        self.__interactive = interactive
+        self.__regenerate = regenerate
+        self.__agent = agent
+        self.__dry_run = dry_run
+        self.__workspace = Workspace("_cache/autocode")
 
     def autocode(
         self,
@@ -132,7 +137,27 @@ class Assistant(BaseAssistant):
         verbose: bool | None = None,
         interactive: bool | None = None,
         decorator: bool = False,
+        dry_run: bool | None = None,
+        dry_run_fn: Callable | None = None,
     ) -> Any:
+        if dry_run is None:
+            dry_run = self.__dry_run
+        if dry_run:
+            if dry_run_fn is None:
+                raise ValueError("dry_run_fn must be provided for dry run.")
+            if decorator:
+
+                def decorator_func(func):
+                    @functools.wraps(func)
+                    def wrapper(*args, **kwargs):
+                        return dry_run_fn(func, *args, **kwargs)
+
+                    return wrapper
+
+                return decorator_func
+            else:
+                return dry_run_fn
+
         if stack is None:
             stack = inspect.stack()[1:]
         if override:
@@ -145,13 +170,13 @@ class Assistant(BaseAssistant):
 
         # デフォルト設定を上書きする
         if agent is None:
-            agent = self.agent
+            agent = self.__agent
         if regenerate is None:
-            regenerate = self.regenerate
+            regenerate = self.__regenerate
         if verbose is None:
-            verbose = self.verbose
+            verbose = self.__verbose
         if interactive is None:
-            interactive = self.interactive
+            interactive = self.__interactive
 
         ctx = Context.create(
             description=description,
@@ -168,7 +193,7 @@ class Assistant(BaseAssistant):
             refs=refs,
             stack=stack,
         )
-        _agent = agent or self.agent
+        _agent = agent or self.__agent
         caller_path = (
             Path(stack[0].filename).relative_to(Path.cwd()) if stack else None
         )  # TODO: 本当はcwdではなく、プロジェクトのルートディレクトリを使うべき

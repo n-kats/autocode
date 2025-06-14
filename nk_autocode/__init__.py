@@ -1,6 +1,6 @@
 import importlib.metadata
 
-from nk_autocode.presets.default import autocode, setup_autocode
+from nk_autocode.presets.default import autocode, print_and_exception, return_value, setup_autocode
 
 try:
     __version__ = importlib.metadata.version(__name__)
