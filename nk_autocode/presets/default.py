@@ -4,18 +4,12 @@ from typing import Any, Callable
 
 from dotenv import load_dotenv
 
+from nk_autocode.editor import Editor
 from nk_autocode.framework import BaseAgent, Variable
 from nk_autocode.presets.assistant import Assistant
 from nk_autocode.presets.openai_agent import OpenAIAgent
 
-_default_assistant = Assistant(
-    verbose=False,
-    interactive=False,
-    regenerate=False,
-    agent=OpenAIAgent(api_key=os.getenv("OPENAI_API_KEY")),
-    dry_run=False,
-    dry_run_fn=None,
-)
+_default_assistant: Assistant
 
 
 def autocode(
@@ -71,6 +65,7 @@ def setup_autocode(
     interactive: bool = False,
     regenerate: bool = False,
     agent: BaseAgent | None = None,
+    editor: Editor | None = None,
     dry_run: bool | None = None,
     dry_run_fn: Callable | None = None,
 ):
@@ -81,6 +76,11 @@ def setup_autocode(
     if agent is None:
         agent = OpenAIAgent(api_key=os.getenv("OPENAI_API_KEY"))
 
+    if editor is None:
+        editor_in_env = os.getenv("EDITOR")
+        if editor_in_env:
+            editor = Editor(editor_in_env)
+
     _default_assistant = Assistant(
         verbose=verbose,
         interactive=interactive,
@@ -88,7 +88,11 @@ def setup_autocode(
         agent=agent,
         dry_run=dry_run,
         dry_run_fn=dry_run_fn,
+        editor=editor,
     )
+
+
+setup_autocode()
 
 
 def return_value(value: Any, verbose: bool = False) -> Any:

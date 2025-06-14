@@ -82,3 +82,7 @@ except Exception as e:
     print(e)
 fn = autocode("引数を足す", args=["a", "b"], dry_run=False)  # autocodeの引数でdry_run=Falseを指定するとsetup_autocodeより優先される
 ```
+
+## 環境変数
+* OPENAI_API_KEY: （必須）OpenAI APIキー
+* EDIOR: （オプション）編集時に用いるエディタ（なければ編集できないだけ）

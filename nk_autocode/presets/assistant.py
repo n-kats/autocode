@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from nk_autocode.editor import Editor
 from nk_autocode.framework import (
     BaseAgent,
     BaseAssistant,
@@ -106,6 +107,7 @@ class Assistant(BaseAssistant):
         interactive: bool,
         regenerate: bool,
         agent: BaseAgent,
+        editor: Editor | None,
         dry_run: bool = False,
         dry_run_fn: Callable | None = None,
     ):
@@ -114,7 +116,8 @@ class Assistant(BaseAssistant):
         self.__regenerate = regenerate
         self.__agent = agent
         self.__dry_run = dry_run
-        self.__workspace = Workspace("_cache/autocode")
+        self.__workspace = Workspace(Path("_cache/autocode"))
+        self.__editor = editor
 
     def autocode(
         self,
@@ -237,7 +240,7 @@ class Assistant(BaseAssistant):
             feedback: Feedback | None = None
 
             if interactive:
-                success, feedback = self._human_check(code)
+                code, success, feedback = self._human_check(code)
 
             if success:
                 success, feedback = self._error_check(code, ctx.name, verbose=verbose)
@@ -280,15 +283,37 @@ class Assistant(BaseAssistant):
 
         return decorator
 
-    def _human_check(self, code: str) -> tuple[bool, HumanFeedback | None]:
-        print("[autocode] Generated Code:")
-        print(code)
-        accepted = yes_no_prompt("Accept generated code?")
-        if accepted:
-            return True, None
-        else:
-            feedback_text = input("Enter feedback on the code issues: ")
-            return False, HumanFeedback(feedback=feedback_text, previous_code=code)
+    def _human_check(self, code: str) -> tuple[str, bool, HumanFeedback | None]:
+        is_generated = True
+        while True:
+            if is_generated:
+                print("[autocode] Generated Code:")
+                print(code)
+                command = select_prompt(
+                    "Accept generated code(y/n)? Or edit it(e)?",
+                    ["y", "n", "e"],
+                )
+            else:
+                print("[autocode] Editted Code:")
+                print(code)
+                command = select_prompt(
+                    "Accept code(y/n)? Or edit it(e)?",
+                    ["y", "n", "e"],
+                )
+            if command == "y":
+                return code, True, None
+            elif command == "e":
+                if self.__editor is None:
+                    print("[autocode] No editor configured. Cannot edit code.")
+                    continue
+                editted, fixed_code = self.__editor.edit(code)
+                if editted:
+                    is_generated = False
+                    code = fixed_code
+                continue
+            else:
+                feedback_text = input("Enter feedback on the code issues: ")
+                return code, False, HumanFeedback(feedback=feedback_text, previous_code=code)
 
     def _error_check(self, code: str, function_name: str | None, verbose: bool) -> tuple[bool, ErrorFeedback | None]:
         try:
@@ -325,12 +350,15 @@ def compile_code(code: str, function_name: str | None) -> Any:
         return ns.get(function_name)
 
 
-def yes_no_prompt(prompt: str) -> bool:
+def select_prompt(prompt: str, options: list[str]) -> str:
+    message = f"{prompt} ({', '.join(options)})"
     while True:
-        ans = input(f"{prompt} (y/n): ").strip().lower()
-        if ans == "y":
-            return True
-        elif ans == "n":
-            return False
+        ans = input(message).strip().lower()
+        if ans in options:
+            return ans
         else:
-            print("Please answer with 'y' or 'n'.", file=sys.stderr)
+            print(f"Please choose from {', '.join(options)}.", file=sys.stderr)
+
+
+def yes_no_prompt(prompt: str) -> bool:
+    return select_prompt(prompt, ["y", "n"]) == "y"
