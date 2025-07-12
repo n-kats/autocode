@@ -83,6 +83,34 @@ except Exception as e:
 fn = autocode("引数を足す", args=["a", "b"], dry_run=False)  # autocodeの引数でdry_run=Falseを指定するとsetup_autocodeより優先される
 ```
 
+## autodoc - 自動ドキュメント生成
+
+```python
+from nk_autodoc.presets.default import writer, compressor
+
+# シンプルな文章生成
+writer("ツールの概要")
+
+# 計画を立てる
+plan = writer.plan("機能一覧作成", type_auto='{"items": [..., ...]}')
+
+# 計画に基づいた詳細な文章生成
+for item in plan.items:
+    context = compressor(writer.context)
+    context.add(item)
+    sub_writer = writer.sub_writer(context=context)
+    sub_writer(f"{item} の機能の説明をする")
+    sub_writer.plan(f"{item} の例を考える")
+    sub_writer(f"{item} の使い方を説明する")
+    writer.add_context(sub_writer.context, compressor=compressor)
+
+# コンテキストの圧縮
+writer.compress(compressor=compressor)
+
+# 追加の文章生成
+writer("ツールの使い方の注意点")
+```
+
 ## 環境変数
 * OPENAI_API_KEY: （必須）OpenAI APIキー
 * EDIOR: （オプション）編集時に用いるエディタ（なければ編集できないだけ）
