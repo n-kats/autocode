@@ -8,6 +8,9 @@
 /_temp
 /_log
 /_logs
+# Local agent/cache state
+.codex/
+.autocode_cache/
 
 # Added from https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 __pycache__/

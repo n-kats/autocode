@@ -1,5 +1,21 @@
 # Repository Guidelines
 
+## プロジェクト概要
+- nk_autocode: 実行時コード生成の中核。主要APIは `autocode()` と `setup_autocode()`。
+  - OpenAI（既定 `gpt-4.1`）で関数コードを生成し、`exec` により関数の存在・呼び出し性を検証。
+  - 対話モードでの承認/再編集（`EDITOR` 起動）/否認→フィードバック再生成に対応。
+  - キャッシュ保存と再利用（`_cache/autocode/{ids,structure}`）。`id` 優先、次に呼び出し元パス+関数名。
+  - デコレータ利用、dry-run（`return_value`/`print_and_exception`）、外部関数での上書き（`override="pkg.mod:func"`）。
+- nk_autodoc: 自動ドキュメント生成のユーティリティ。
+  - `Writer`/`Compressor`/`OpenAIModel` を用いて計画と文章を段階生成。
+  - `auto_type()` で LLM に pydantic モデル定義を生成させ、構造化出力をパース。
+- サンプル: `samples/` に最小例（simple/decorator/dry_run/typing/setup）。
+- 環境変数: `OPENAI_API_KEY` 必須、`EDITOR` 任意。`.env` を `setup_autocode(dotenv_path=...)` で読込可能。
+- 開発運用: `make lint`/`format`/`test`、Python 3.12、ruff/mypy/pytest に準拠。
+
+### 詳細ドキュメント
+- リポジトリ構造や設計のより詳しい情報は `docs/README.md` を参照してください。
+
 ## プロジェクト構成とモジュール
 - `nk_autocode/`: 実行時コード生成のコア（API、プリセット、編集ユーティリティ）。
 - `nk_autodoc/`: 自動ドキュメント生成ユーティリティ（writers、compressors、presets）。
