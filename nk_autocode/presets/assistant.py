@@ -29,8 +29,13 @@ class Workspace:
     cache_root: Path
 
     def get_code_path_by_path(self, path: Path, name: str) -> Path:
-        struct_dir = self.cache_root / "structure"
-        struct_file = struct_dir / f"{path}/{name}.py"
+        """Return normalized structure cache path for a caller file and function name.
+
+        Normalization rule:
+        - Drop the suffix from caller path (e.g. foo/bar.py -> foo/bar)
+        - Save under `_cache/autocode/structure/{caller_no_ext}/{name}.py`
+        """
+        struct_file = self.structure_file_from(path, name)
         return struct_file
 
     def get_code_path_by_id(self, id: str) -> Path | None:
@@ -49,10 +54,10 @@ class Workspace:
             print(f"Code saved to {id_file}")
         return id_file
 
-    def save_code_by_name(self, name: str, code: str, verbose: bool = False) -> Path:
-        struct_dir = self.cache_root / "structure"
-        struct_dir.mkdir(parents=True, exist_ok=True)
-        struct_file = struct_dir / f"{name}.py"
+    def save_code_by_name(self, name: str, code: str, caller_path: Path, verbose: bool = False) -> Path:
+        """Save generated code under normalized structure cache path."""
+        struct_file = self.structure_file_from(caller_path, name)
+        struct_file.parent.mkdir(parents=True, exist_ok=True)
         struct_file.write_text(code, encoding="utf-8")
         if verbose:
             print(f"Code saved to {struct_file}")
@@ -69,9 +74,16 @@ class Workspace:
         if id_:
             self.save_code_by_id(id_, code, verbose=verbose)
         elif name:
-            self.save_code_by_name(name, code, verbose=verbose)
+            if caller_path is None:
+                raise ValueError("caller_path is required when saving code by name.")
+            self.save_code_by_name(name, code, caller_path=caller_path, verbose=verbose)
         else:
             raise ValueError("Either 'id' or 'name' must be provided for saving code.")
+
+    def structure_file_from(self, caller_path: Path, name: str) -> Path:
+        """Helper to compute normalized structure cache path."""
+        caller_no_ext = caller_path.with_suffix("")
+        return self.cache_root / "structure" / caller_no_ext / f"{name}.py"
 
 
 def load_cached_code(
@@ -84,10 +96,14 @@ def load_cached_code(
     cache_path: Path | None = None
     if id_:
         id_file = workspace.get_code_path_by_id(id_)
+        if verbose:
+            print(f"[autocode] Checking id cache path: {id_file}")
         if id_file and id_file.is_file():
             cache_path = id_file
     if not cache_path and caller_path and name:
         struct_file = workspace.get_code_path_by_path(caller_path, name)
+        if verbose:
+            print(f"[autocode] Checking struct cache path: {struct_file}")
         if struct_file.is_file():
             cache_path = struct_file
     if cache_path:
@@ -103,11 +119,11 @@ def load_cached_code(
     return False, None
 
 
-def save_code(workspace: Workspace, name: str, code: str, id: str | None = None) -> Path:
+def save_code(workspace: Workspace, name: str, code: str, caller_path: Path, id: str | None = None) -> Path:
     if id:
         return workspace.save_code_by_id(id, code)
     else:
-        return workspace.save_code_by_name(name, code)
+        return workspace.save_code_by_name(name, code, caller_path=caller_path)
 
 
 class Assistant(BaseAssistant):
@@ -208,9 +224,9 @@ class Assistant(BaseAssistant):
             stack=stack,
         )
         _agent = agent or self.__agent
-        caller_path = (
-            Path(stack[0].filename).relative_to(Path.cwd()) if stack else None
-        )  # TODO: 本当はcwdではなく、プロジェクトのルートディレクトリを使うべき
+        caller_path = Path(stack[0].filename).relative_to(Path.cwd()) if stack else None
+        if verbose and caller_path is not None:
+            print(f"[autocode] Caller path: {caller_path}")
         if decorator:
             return self._autocode_decorator(
                 ctx, _agent, verbose=verbose, interactive=interactive, regenerate=regenerate, caller_path=caller_path
